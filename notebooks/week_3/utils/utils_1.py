@@ -12,19 +12,10 @@ def format_ai_message(response):
     if response.tool_calls:
         tool_calls = []
         for i, tc in enumerate(response.tool_calls):
-            # tc.arguments is now a JSON-encoded STRING (not a dict), because
-            # the Gemini API rejects the open-ended `additionalProperties`
-            # schema that Pydantic generates for a raw `dict` field. LangChain's
-            # AIMessage.tool_calls, however, still requires "args" to be an
-            # actual dict -- so we parse it back out here.
-            args = tc.arguments
-            if isinstance(args, str):
-                args = json.loads(args)
-
             tool_calls.append({
                 "id": f"call_{i}",
                 "name": tc.name,
-                "args": args
+                "args": tc.arguments
             })
 
         ai_message = AIMessage(
