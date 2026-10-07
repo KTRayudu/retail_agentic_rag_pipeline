@@ -105,14 +105,30 @@ def rag_agent_wrapper(question):
     result = run_agent(question)
 
     used_context = []
-    dummy_vector = np.zeros(1536).tolist()
+    # dummy_vector = np.zeros(1536).tolist()
+    dummy_vector = np.zeros(768).tolist()
 
     for item in result.get("references", []):
+        # payload = qdrant_client.query_points(
+        #     collection_name="Amazon-items-collection-01-hybrid-search",
+        #     query=dummy_vector,
+        #     limit=1,
+        #     using="text-embedding-3-small",
+        #     with_payload=True,
+        #     query_filter=Filter(
+        #         must=[
+        #             FieldCondition(
+        #                 key="parent_asin",
+        #                 match=MatchValue(value=item.id)
+        #             )
+        #         ]
+        #     )
+        # ).points[0].payload
         payload = qdrant_client.query_points(
-            collection_name="Amazon-items-collection-01-hybrid-search",
+            collection_name="Amazon-items-collection-02-ollama",
             query=dummy_vector,
             limit=1,
-            using="text-embedding-3-small",
+            using="nomic-embed-text",
             with_payload=True,
             query_filter=Filter(
                 must=[

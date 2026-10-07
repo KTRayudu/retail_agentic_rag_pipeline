@@ -17,13 +17,35 @@ class RAGGenerationResponse(BaseModel):
     references: list[RAGUsedContext] = Field(description="List of items used to answer the question")
 
 
+# @traceable(
+#     name="embed_query",
+#     run_type="embedding",
+#     metadata={"ls_provider": "openai", "ls_model_name": "text-embedding-3-small"}
+# )
+# def get_embedding(text, model="text-embedding-3-small"):
+#     response = openai.embeddings.create(
+#         input=text,
+#         model=model,
+#     )
+# 
+#     current_run = get_current_run_tree()
+# 
+#     if current_run:
+#         current_run.metadata["usage_metadata"] = {
+#             "input_tokens": response.usage.prompt_tokens,
+#             "total_tokens": response.usage.total_tokens,
+#         }
+# 
+#     return response.data[0].embedding
+
 @traceable(
     name="embed_query",
     run_type="embedding",
-    metadata={"ls_provider": "openai", "ls_model_name": "text-embedding-3-small"}
+    metadata={"ls_provider": "ollama", "ls_model_name": "nomic-embed-text:latest"}
 )
-def get_embedding(text, model="text-embedding-3-small"):
-    response = openai.embeddings.create(
+def get_embedding(text, model="nomic-embed-text:latest"):
+    client = openai.OpenAI(base_url="http://host.docker.internal:11434/v1", api_key="ollama")
+    response = client.embeddings.create(
         input=text,
         model=model,
     )
@@ -45,10 +67,16 @@ def get_embedding(text, model="text-embedding-3-small"):
 )
 def semantic_search(query_embedding, qdrant_client, limit=20):
     """Execute semantic vector search and return results for tracing."""
+    # results = qdrant_client.query_points(
+    #     collection_name="Amazon-items-collection-01-hybrid-search",
+    #     query=query_embedding,
+    #     using="text-embedding-3-small",
+    #     limit=limit,
+    # )
     results = qdrant_client.query_points(
-        collection_name="Amazon-items-collection-01-hybrid-search",
+        collection_name="Amazon-items-collection-02-ollama",
         query=query_embedding,
-        using="text-embedding-3-small",
+        using="nomic-embed-text",
         limit=limit,
     )
     return [{"id": p.payload["parent_asin"], "score": p.score} for p in results.points]
@@ -61,7 +89,7 @@ def semantic_search(query_embedding, qdrant_client, limit=20):
 def bm25_search(query, qdrant_client, limit=20):
     """Execute BM25 sparse vector search and return results for tracing."""
     results = qdrant_client.query_points(
-        collection_name="Amazon-items-collection-01-hybrid-search",
+        collection_name="Amazon-items-collection-02-ollama",
         query=Document(text=query, model="qdrant/bm25"),
         using="bm25",
         limit=limit,
@@ -82,11 +110,16 @@ def retrieve_data(query, qdrant_client, k=5):
     bm25_results = bm25_search(query, qdrant_client, k)
 
     results = qdrant_client.query_points(
-        collection_name="Amazon-items-collection-01-hybrid-search",
+        collection_name="Amazon-items-collection-02-ollama",
         prefetch=[
+            # Prefetch(
+            #     query=query_embedding,
+            #     using="text-embedding-3-small",
+            #     limit=20
+            # ),
             Prefetch(
                 query=query_embedding,
-                using="text-embedding-3-small",
+                using="nomic-embed-text",
                 limit=20
             ),
             Prefetch(
@@ -147,17 +180,33 @@ def build_prompt(preprocessed_context, question):
     return prompt
 
 
+# @traceable(
+#     name="generate_answer",
+#     run_type="llm",
+#     metadata={"ls_provider": "openai", "ls_model_name": "gpt-4.1-mini"}
+# )
+# def generate_answer(prompt):
+# 
+#     client = instructor.from_openai(openai.OpenAI())
+# 
+#     response, raw_response = client.chat.completions.create_with_completion(
+#         model="gpt-4.1-mini",
+#         messages=[{"role": "system", "content": prompt}],
+#         temperature=0,
+#         response_model=RAGGenerationResponse
+#     )
+
 @traceable(
     name="generate_answer",
     run_type="llm",
-    metadata={"ls_provider": "openai", "ls_model_name": "gpt-4.1-mini"}
+    metadata={"ls_provider": "ollama", "ls_model_name": "gpt-oss:120b"}
 )
 def generate_answer(prompt):
 
-    client = instructor.from_openai(openai.OpenAI())
+    client = instructor.from_openai(openai.OpenAI(base_url="http://host.docker.internal:11434/v1", api_key="ollama"), mode=instructor.Mode.JSON)
 
     response, raw_response = client.chat.completions.create_with_completion(
-        model="gpt-4.1-mini",
+        model="gpt-oss:120b",
         messages=[{"role": "system", "content": prompt}],
         temperature=0,
         response_model=RAGGenerationResponse
@@ -204,14 +253,30 @@ def rag_pipeline_wrapper(question, top_k=5):
     result = rag_pipeline(question, qdrant_client, top_k)
 
     used_context = []
-    dummy_vector = np.zeros(1536).tolist()
+    # dummy_vector = np.zeros(1536).tolist()
+    dummy_vector = np.zeros(768).tolist()
 
     for item in result.get("references", []):
+        # payload = qdrant_client.query_points(
+        #     collection_name="Amazon-items-collection-01-hybrid-search",
+        #     query=dummy_vector,
+        #     limit=1,
+        #     using="text-embedding-3-small",
+        #     with_payload=True,
+        #     query_filter=Filter(
+        #         must=[
+        #             FieldCondition(
+        #                 key="parent_asin",
+        #                 match=MatchValue(value=item.id)
+        #             )
+        #         ]
+        #     )
+        # ).points[0].payload
         payload = qdrant_client.query_points(
-            collection_name="Amazon-items-collection-01-hybrid-search",
+            collection_name="Amazon-items-collection-02-ollama",
             query=dummy_vector,
             limit=1,
-            using="text-embedding-3-small",
+            using="nomic-embed-text",
             with_payload=True,
             query_filter=Filter(
                 must=[

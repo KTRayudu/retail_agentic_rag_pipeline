@@ -36,10 +36,39 @@ class IntentRouterResponse(BaseModel):
 
 ### QnA Agent Node
 
+# @traceable(
+#     name="agent_node",
+#     run_type="llm",
+#     metadata={"ls_provider": "openai", "ls_model_name": "gpt-4.1-mini"}
+# )
+# def agent_node(state) -> dict:
+# 
+#    template = prompt_template_config("api/agents/prompts/qa_agent.yaml", "qa_agent")
+#    
+#    prompt = template.render(
+#       available_tools=state.available_tools
+#    )
+# 
+#    messages = state.messages
+# 
+#    conversation = []
+# 
+#    for message in messages:
+#         conversation.append(convert_to_openai_messages(message))
+# 
+#    client = instructor.from_openai(OpenAI())
+# 
+#    response, raw_response = client.chat.completions.create_with_completion(
+#         model="gpt-4.1-mini",
+#         response_model=AgentResponse,
+#         messages=[{"role": "system", "content": prompt}, *conversation],
+#         temperature=0.5,
+#    )
+
 @traceable(
     name="agent_node",
     run_type="llm",
-    metadata={"ls_provider": "openai", "ls_model_name": "gpt-4.1-mini"}
+    metadata={"ls_provider": "ollama", "ls_model_name": "gpt-oss:120b"}
 )
 def agent_node(state) -> dict:
 
@@ -56,10 +85,10 @@ def agent_node(state) -> dict:
    for message in messages:
         conversation.append(convert_to_openai_messages(message))
 
-   client = instructor.from_openai(OpenAI())
+   client = instructor.from_openai(OpenAI(base_url="http://host.docker.internal:11434/v1", api_key="ollama"), mode=instructor.Mode.JSON)
 
    response, raw_response = client.chat.completions.create_with_completion(
-        model="gpt-4.1-mini",
+        model="gpt-oss:120b",
         response_model=AgentResponse,
         messages=[{"role": "system", "content": prompt}, *conversation],
         temperature=0.5,
@@ -80,10 +109,37 @@ def agent_node(state) -> dict:
 ### Intent Router Agent Node
 
 
+# @traceable(
+#     name="intent_router_node",
+#     run_type="llm",
+#     metadata={"ls_provider": "openai", "ls_model_name": "gpt-4.1-mini"}
+# )
+# def intent_router_node(state):
+# 
+#    template = prompt_template_config("api/agents/prompts/intent_router_agent.yaml", "intent_router_agent")
+#    
+#    prompt = template.render()
+# 
+#    messages = state.messages
+# 
+#    conversation = []
+# 
+#    for message in messages:
+#         conversation.append(convert_to_openai_messages(message))
+# 
+#    client = instructor.from_openai(OpenAI())
+# 
+#    response, raw_response = client.chat.completions.create_with_completion(
+#         model="gpt-4.1-mini",
+#         response_model=IntentRouterResponse,
+#         messages=[{"role": "system", "content": prompt}, *conversation],
+#         temperature=0.5,
+#    )
+
 @traceable(
     name="intent_router_node",
     run_type="llm",
-    metadata={"ls_provider": "openai", "ls_model_name": "gpt-4.1-mini"}
+    metadata={"ls_provider": "ollama", "ls_model_name": "gpt-oss:120b"}
 )
 def intent_router_node(state):
 
@@ -98,10 +154,10 @@ def intent_router_node(state):
    for message in messages:
         conversation.append(convert_to_openai_messages(message))
 
-   client = instructor.from_openai(OpenAI())
+   client = instructor.from_openai(OpenAI(base_url="http://host.docker.internal:11434/v1", api_key="ollama"), mode=instructor.Mode.JSON)
 
    response, raw_response = client.chat.completions.create_with_completion(
-        model="gpt-4.1-mini",
+        model="gpt-oss:120b",
         response_model=IntentRouterResponse,
         messages=[{"role": "system", "content": prompt}, *conversation],
         temperature=0.5,
