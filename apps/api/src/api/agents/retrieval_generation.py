@@ -38,6 +38,28 @@ class RAGGenerationResponse(BaseModel):
 # 
 #     return response.data[0].embedding
 
+# @traceable(
+#     name="embed_query",
+#     run_type="embedding",
+#     metadata={"ls_provider": "ollama", "ls_model_name": "nomic-embed-text:latest"}
+# )
+# def get_embedding(text, model="nomic-embed-text:latest"):
+#     client = openai.OpenAI(base_url="http://host.docker.internal:11434/v1", api_key="ollama")
+#     response = client.embeddings.create(
+#         input=text,
+#         model=model,
+#     )
+# 
+#     current_run = get_current_run_tree()
+# 
+#     if current_run:
+#         current_run.metadata["usage_metadata"] = {
+#             "input_tokens": response.usage.prompt_tokens,
+#             "total_tokens": response.usage.total_tokens,
+#         }
+# 
+#     return response.data[0].embedding
+
 from google import genai
 
 @traceable(
@@ -66,6 +88,12 @@ def semantic_search(query_embedding, qdrant_client, limit=20):
     #     using="text-embedding-3-small",
     #     limit=limit,
     # )
+    # results = qdrant_client.query_points(
+    #     collection_name="Amazon-items-collection-02-ollama",
+    #     query=query_embedding,
+    #     using="nomic-embed-text",
+    #     limit=limit,
+    # )
     results = qdrant_client.query_points(
         collection_name="Amazon-items-collection-03",
         query=query_embedding,
@@ -81,6 +109,12 @@ def semantic_search(query_embedding, qdrant_client, limit=20):
 )
 def bm25_search(query, qdrant_client, limit=20):
     """Execute BM25 sparse vector search and return results for tracing."""
+    # results = qdrant_client.query_points(
+    #     collection_name="Amazon-items-collection-02-ollama",
+    #     query=Document(text=query, model="qdrant/bm25"),
+    #     using="bm25",
+    #     limit=limit,
+    # )
     results = qdrant_client.query_points(
         collection_name="Amazon-items-collection-03",
         query=Document(text=query, model="qdrant/bm25"),
@@ -101,6 +135,27 @@ def retrieve_data(query, qdrant_client, k=5):
     # Execute and trace individual searches
     semantic_results = semantic_search(query_embedding, qdrant_client, k)
     bm25_results = bm25_search(query, qdrant_client, k)
+
+    # results = qdrant_client.query_points(
+    #     collection_name="Amazon-items-collection-02-ollama",
+    #     prefetch=[
+    #         Prefetch(
+    #             query=query_embedding,
+    #             using="nomic-embed-text",
+    #             limit=20
+    #         ),
+    #         Prefetch(
+    #             query=Document(
+    #                 text=query,
+    #                 model="qdrant/bm25"
+    #             ),
+    #             using="bm25",
+    #             limit=20
+    #         )
+    #     ],
+    #     query=FusionQuery(fusion="rrf"),
+    #     limit=k,
+    # )
 
     results = qdrant_client.query_points(
         collection_name="Amazon-items-collection-03",
@@ -250,6 +305,21 @@ def rag_pipeline_wrapper(question, top_k=5):
         #     query=dummy_vector,
         #     limit=1,
         #     using="text-embedding-3-small",
+        #     with_payload=True,
+        #     query_filter=Filter(
+        #         must=[
+        #             FieldCondition(
+        #                 key="parent_asin",
+        #                 match=MatchValue(value=item.id)
+        #             )
+        #         ]
+        #     )
+        # ).points[0].payload
+        # payload = qdrant_client.query_points(
+        #     collection_name="Amazon-items-collection-02-ollama",
+        #     query=dummy_vector,
+        #     limit=1,
+        #     using="nomic-embed-text",
         #     with_payload=True,
         #     query_filter=Filter(
         #         must=[

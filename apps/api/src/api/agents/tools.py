@@ -25,6 +25,28 @@ from qdrant_client.models import Prefetch, FusionQuery, Document
 # 
 #     return response.data[0].embedding
 
+# @traceable(
+#     name="embed_query",
+#     run_type="embedding",
+#     metadata={"ls_provider": "ollama", "ls_model_name": "nomic-embed-text:latest"}
+# )
+# def get_embedding(text, model="nomic-embed-text:latest"):
+#     client = openai.OpenAI(base_url="http://host.docker.internal:11434/v1", api_key="ollama")
+#     response = client.embeddings.create(
+#         input=text,
+#         model=model,
+#     )
+# 
+#     current_run = get_current_run_tree()
+# 
+#     if current_run:
+#         current_run.metadata["usage_metadata"] = {
+#             "input_tokens": response.usage.prompt_tokens,
+#             "total_tokens": response.usage.total_tokens,
+#         }
+# 
+#     return response.data[0].embedding
+
 from google import genai
 
 @traceable(
@@ -52,6 +74,27 @@ def retrieve_data(query, qdrant_client=None, k=5):
 
     if not qdrant_client:
         qdrant_client = QdrantClient(url="http://qdrant:6333")
+
+    # results = qdrant_client.query_points(
+    #     collection_name="Amazon-items-collection-02-ollama",
+    #     prefetch=[
+    #         Prefetch(
+    #             query=query_embedding,
+    #             using="nomic-embed-text",
+    #             limit=20
+    #         ),
+    #         Prefetch(
+    #             query=Document(
+    #                 text=query,
+    #                 model="qdrant/bm25"
+    #             ),
+    #             using="bm25",
+    #             limit=20
+    #         )
+    #     ],
+    #     query=FusionQuery(fusion="rrf"),
+    #     limit=k,
+    # )
 
     results = qdrant_client.query_points(
         collection_name="Amazon-items-collection-03",

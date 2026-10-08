@@ -124,6 +124,21 @@ def rag_agent_wrapper(question):
         #         ]
         #     )
         # ).points[0].payload
+        # payload = qdrant_client.query_points(
+        #     collection_name="Amazon-items-collection-02-ollama",
+        #     query=dummy_vector,
+        #     limit=1,
+        #     using="nomic-embed-text",
+        #     with_payload=True,
+        #     query_filter=Filter(
+        #         must=[
+        #             FieldCondition(
+        #                 key="parent_asin",
+        #                 match=MatchValue(value=item.id)
+        #             )
+        #         ]
+        #     )
+        # ).points[0].payload
         payload = qdrant_client.query_points(
             collection_name="Amazon-items-collection-03",
             query=dummy_vector,
