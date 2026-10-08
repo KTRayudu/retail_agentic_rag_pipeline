@@ -38,27 +38,20 @@ class RAGGenerationResponse(BaseModel):
 # 
 #     return response.data[0].embedding
 
+from google import genai
+
 @traceable(
     name="embed_query",
     run_type="embedding",
-    metadata={"ls_provider": "ollama", "ls_model_name": "nomic-embed-text:latest"}
+    metadata={"ls_provider": "google", "ls_model_name": "models/embedding-001"}
 )
-def get_embedding(text, model="nomic-embed-text:latest"):
-    client = openai.OpenAI(base_url="http://host.docker.internal:11434/v1", api_key="ollama")
-    response = client.embeddings.create(
-        input=text,
+def get_embedding(text, model="models/embedding-001"):
+    client = genai.Client()
+    response = client.models.embed_content(
         model=model,
+        contents=text,
     )
-
-    current_run = get_current_run_tree()
-
-    if current_run:
-        current_run.metadata["usage_metadata"] = {
-            "input_tokens": response.usage.prompt_tokens,
-            "total_tokens": response.usage.total_tokens,
-        }
-
-    return response.data[0].embedding
+    return response.embeddings[0].values
 
 
 @traceable(
@@ -74,9 +67,9 @@ def semantic_search(query_embedding, qdrant_client, limit=20):
     #     limit=limit,
     # )
     results = qdrant_client.query_points(
-        collection_name="Amazon-items-collection-02-ollama",
+        collection_name="Amazon-items-collection-03",
         query=query_embedding,
-        using="nomic-embed-text",
+        using="gemini-embedding-001",
         limit=limit,
     )
     return [{"id": p.payload["parent_asin"], "score": p.score} for p in results.points]
@@ -89,7 +82,7 @@ def semantic_search(query_embedding, qdrant_client, limit=20):
 def bm25_search(query, qdrant_client, limit=20):
     """Execute BM25 sparse vector search and return results for tracing."""
     results = qdrant_client.query_points(
-        collection_name="Amazon-items-collection-02-ollama",
+        collection_name="Amazon-items-collection-03",
         query=Document(text=query, model="qdrant/bm25"),
         using="bm25",
         limit=limit,
@@ -110,16 +103,11 @@ def retrieve_data(query, qdrant_client, k=5):
     bm25_results = bm25_search(query, qdrant_client, k)
 
     results = qdrant_client.query_points(
-        collection_name="Amazon-items-collection-02-ollama",
+        collection_name="Amazon-items-collection-03",
         prefetch=[
-            # Prefetch(
-            #     query=query_embedding,
-            #     using="text-embedding-3-small",
-            #     limit=20
-            # ),
             Prefetch(
                 query=query_embedding,
-                using="nomic-embed-text",
+                using="gemini-embedding-001",
                 limit=20
             ),
             Prefetch(
@@ -273,10 +261,10 @@ def rag_pipeline_wrapper(question, top_k=5):
         #     )
         # ).points[0].payload
         payload = qdrant_client.query_points(
-            collection_name="Amazon-items-collection-02-ollama",
+            collection_name="Amazon-items-collection-03",
             query=dummy_vector,
             limit=1,
-            using="nomic-embed-text",
+            using="gemini-embedding-001",
             with_payload=True,
             query_filter=Filter(
                 must=[
